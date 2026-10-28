@@ -5,3 +5,5 @@ prisma/*.db*
 *.tsbuildinfo
 next-env.d.ts
 screenshots/
+*.bundle
+*.zip
