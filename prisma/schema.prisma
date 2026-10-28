@@ -1,0 +1,115 @@
+// SQLite for local dev. For production switch provider to "postgresql"
+// and point DATABASE_URL at Postgres (Supabase, Neon, Railway, ...).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String?
+  passwordHash       String
+  role               String    @default("USER") // USER | ADMIN
+  plan               String    @default("FREE") // FREE | PRO
+  stripeCustomerId   String?   @unique
+  subscriptionStatus String?
+  createdAt          DateTime  @default(now())
+  teams              Team[]
+}
+
+model Player {
+  id         String        @id @default(cuid())
+  name       String
+  position   String // QB RB WR TE
+  nflTeam    String?
+  adp        Float?
+  byeWeek    Int?
+  sleeperId  String?       @unique
+  nameKey    String        @unique // normalized name + position, used for CSV matching
+  picks      Pick[]
+  scores     WeeklyScore[]
+  rankings   RankingEntry[]
+}
+
+model WeeklyScore {
+  id       String @id @default(cuid())
+  playerId String
+  season   Int
+  week     Int
+  points   Float
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, season, week])
+  @@index([season, week])
+}
+
+model Team {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String?
+  platform   String   @default("Underdog")
+  contest    String?
+  entryFee   Float?
+  draftSize  Int      @default(12)
+  externalId String?
+  draftedAt  DateTime @default(now())
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  picks      Pick[]
+
+  @@unique([userId, externalId])
+}
+
+model Pick {
+  id         String @id @default(cuid())
+  teamId     String
+  playerId   String
+  pickNumber Int // overall pick number
+  team       Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player     Player @relation(fields: [playerId], references: [id])
+
+  @@index([playerId])
+}
+
+model RankingSet {
+  id          String         @id @default(cuid())
+  title       String
+  format      String         @default("Best Ball")
+  notes       String?
+  publishedAt DateTime       @default(now())
+  entries     RankingEntry[]
+}
+
+model RankingEntry {
+  id       String     @id @default(cuid())
+  setId    String
+  playerId String
+  rank     Int
+  tier     Int?
+  note     String?
+  set      RankingSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  player   Player     @relation(fields: [playerId], references: [id])
+
+  @@unique([setId, playerId])
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  category    String   @default("NEWS") // INJURY | RANKINGS | STRATEGY | NEWS
+  excerpt     String?
+  body        String
+  premium     Boolean  @default(true)
+  publishedAt DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
